@@ -135,9 +135,9 @@ accumulate_uint40(int a_index,
 }
 
 void
-gputop_perf_accumulate(struct gputop_perf_query *query,
-		       const uint8_t *report0,
-		       const uint8_t *report1)
+accumulate_oa_reports(struct gputop_perf_query *query,
+		      const uint8_t *report0,
+		      const uint8_t *report1)
 {
     uint64_t *accumulator = query->accumulator;
     const uint32_t *start = (const uint32_t *)report0;
@@ -496,7 +496,7 @@ handle_oa_query_perf_data(struct gputop_worker_query *query, uint8_t *data, int 
 	    //str = strdup("SAMPLE\n");
 	    if (last) {
 		query->end_timestamp = timestamp;
-		gputop_perf_accumulate(oa_query, last, report);
+		accumulate_oa_reports(oa_query, last, report);
 	    }
 
 	    last = report;

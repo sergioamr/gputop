@@ -198,7 +198,7 @@ fragmented_perf_read_cb(wslay_event_context_ptr ctx,
     struct perf_flush_closure *closure =
         (struct perf_flush_closure *)source->data;
     struct gputop_perf_stream *stream = closure->stream;
-    const uint64_t mask = stream->buffer_size - 1;
+    const uint64_t mask = stream->perf.buffer_size - 1;
     int read_len;
     int total = 0;
     uint64_t head;
@@ -223,13 +223,13 @@ fragmented_perf_read_cb(wslay_event_context_ptr ctx,
     head = closure->head;
     tail = closure->tail;
 
-    buffer = stream->buffer;
+    buffer = stream->perf.buffer;
 
     if ((head & mask) < (tail & mask)) {
 	int before;
 
 	p = buffer + (tail & mask);
-	before = stream->buffer_size - (tail & mask);
+	before = stream->perf.buffer_size - (tail & mask);
 	read_len = MIN(before, len);
 	memcpy(data, p, read_len);
 
@@ -242,7 +242,7 @@ fragmented_perf_read_cb(wslay_event_context_ptr ctx,
     }
 
     p = buffer + (tail & mask);
-    remainder = TAKEN(head, tail, stream->buffer_size);
+    remainder = TAKEN(head, tail, stream->perf.buffer_size);
     read_len = MIN(remainder, len);
     memcpy(data, p, read_len);
 
@@ -253,9 +253,9 @@ fragmented_perf_read_cb(wslay_event_context_ptr ctx,
 
     closure->total_len += total;
 
-    if (TAKEN(head, tail, stream->buffer_size) == 0) {
+    if (TAKEN(head, tail, stream->perf.buffer_size) == 0) {
 	*eof = 1;
-	write_perf_tail(stream->mmap_page, tail);
+	write_perf_tail(stream->perf.mmap_page, tail);
     }
 
     return total;
@@ -270,10 +270,10 @@ flush_stream_samples(struct gputop_perf_stream *stream)
     if (fsync(stream->fd) < 0)
 	dbg("Failed to flush i915_oa perf samples");
 
-    head = read_perf_head(stream->mmap_page);
-    tail = stream->mmap_page->data_tail;
+    head = read_perf_head(stream->perf.mmap_page);
+    tail = stream->perf.mmap_page->data_tail;
 
-    if (TAKEN(head, tail, stream->buffer_size)) {
+    if (TAKEN(head, tail, stream->perf.buffer_size)) {
 	struct perf_flush_closure *closure;
 	struct wslay_event_fragmented_msg msg;
 
@@ -375,7 +375,7 @@ periodic_update_head_pointers(uv_timer_t *timer)
     struct gputop_perf_stream *stream;
 
     gputop_list_for_each(stream, &perf_streams, user.link) {
-	struct gputop_perf_header_buf *hdr_buf  = &stream->header_buf;
+	struct gputop_perf_header_buf *hdr_buf  = &stream->perf.header_buf;
 
 	if (stream->query) {
 	    if (fsync(stream->fd) < 0)
@@ -391,7 +391,7 @@ periodic_update_head_pointers(uv_timer_t *timer)
 	    notify.query_id = stream->user.id;
 	    notify.fill_percentage =
 		(hdr_buf->offsets[(hdr_buf->head - 1) % hdr_buf->len] /
-		 (float)stream->buffer_size) * 100.0f;
+		 (float)stream->perf.buffer_size) * 100.0f;
 	    message.cmd_case = GPUTOP__MESSAGE__CMD_FILL_NOTIFY;
 	    message.fill_notify = &notify;
 
@@ -424,7 +424,7 @@ stream_close_cb(struct gputop_perf_stream *stream)
 	message.cmd_case = GPUTOP__MESSAGE__CMD_ACK;
 	message.ack = true;
 
-	dbg("CMD_ACK: %s\n", stream->user.data);
+	dbg("CMD_ACK: %s\n", (char *)stream->user.data);
 
 	send_pb_message(h2o_conn, &message.base);
 
