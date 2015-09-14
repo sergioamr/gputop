@@ -47,6 +47,7 @@
 #include <string.h>
 #include <assert.h>
 #include <inttypes.h>
+#include <poll.h>
 
 #include <uv.h>
 
@@ -698,6 +699,52 @@ write_perf_tail(struct perf_event_mmap_page *mmap_page,
      * we're consuming before updating the tail... */
     mb();
     mmap_page->data_tail = tail;
+}
+
+static bool
+perf_stream_data_pending(struct gputop_perf_stream *stream)
+{
+    uint64_t head = read_perf_head(stream->perf.mmap_page);
+    uint64_t tail = stream->perf.mmap_page->data_tail;
+
+    if (TAKEN(head, tail, stream->perf.buffer_size))
+	return true;
+
+    if (fsync(stream->fd) < 0)
+	dbg("Failed to flush i915_oa perf samples");
+
+    tail = stream->perf.mmap_page->data_tail;
+
+    return !!TAKEN(head, tail, stream->perf.buffer_size);
+}
+
+static bool
+i915_perf_stream_data_pending(struct gputop_perf_stream *stream)
+{
+    struct pollfd pollfd = { stream->fd, POLLIN, 0 };
+    int ret;
+
+    while ((ret = poll(&pollfd, 1, 0)) < 0 && errno == EINTR)
+	;
+
+    if (ret == 1 && pollfd.revents & POLLIN)
+	return true;
+    else
+	return false;
+}
+
+bool
+gputop_stream_data_pending(struct gputop_perf_stream *stream)
+{
+    switch (stream->type) {
+    case GPUTOP_STREAM_PERF:
+	return perf_stream_data_pending(stream);
+    case GPUTOP_STREAM_I915_PERF:
+	return i915_perf_stream_data_pending(stream);
+    }
+
+    assert(0);
+
 }
 
 /* Perf supports a flight recorder mode whereby it won't stop writing

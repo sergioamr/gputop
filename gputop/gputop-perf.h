@@ -241,6 +241,7 @@ struct gputop_perf_stream
 	gputop_list_t link;
 	void *data;
 	void (*destroy_cb)(struct gputop_perf_stream *stream);
+	bool flushing;
     } user;
 };
 #endif
@@ -315,6 +316,13 @@ gputop_perf_open_i915_oa_query(struct gputop_perf_query *query,
 			       bool overwrite,
 			       char **error);
 struct gputop_perf_stream *
+gputop_open_i915_perf_oa_query(struct gputop_perf_query *query,
+			       int period_exponent,
+			       size_t perf_buffer_size,
+			       void (*ready_cb)(uv_poll_t *poll, int status, int events),
+			       bool overwrite,
+			       char **error);
+struct gputop_perf_stream *
 gputop_perf_open_trace(int pid,
 		       int cpu,
 		       const char *system,
@@ -334,6 +342,8 @@ gputop_perf_open_generic_counter(int pid,
 				 void (*ready_cb)(uv_poll_t *poll, int status, int events),
 				 bool overwrite,
 				 char **error);
+
+bool gputop_stream_data_pending(struct gputop_perf_stream *stream);
 
 void gputop_perf_update_header_offsets(struct gputop_perf_stream *stream);
 
