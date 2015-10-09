@@ -135,7 +135,7 @@ static struct intel_device intel_dev;
 
 static unsigned int page_size;
 
-struct gputop_perf_query perf_queries[MAX_PERF_QUERIES];
+struct gputop_perf_query perf_queries[I915_OA_METRICS_SET_MAX];
 struct gputop_perf_query *gputop_current_perf_query;
 struct gputop_perf_stream *gputop_current_perf_stream;
 
@@ -598,17 +598,9 @@ gputop_perf_open_generic_counter(int pid,
 static void
 init_dev_info(int drm_fd, uint32_t devid)
 {
-    i915_getparam_t test;
-    int test_n_eus;
-    int status;
+    int threads_per_eu = 7;
 
     gputop_devinfo.devid = devid;
-
-    test.param = I915_PARAM_EU_TOTAL;
-    test.value = &test_n_eus;
-    status = perf_ioctl(drm_fd, I915_IOCTL_GETPARAM, &test);
-    if (status == -1)
-	fprintf(stderr, "error calling I915_IOCTL_GETPARAM %m\n");
 
     if (IS_HASWELL(devid)) {
 	if (IS_HSW_GT1(devid)) {
@@ -667,6 +659,7 @@ init_dev_info(int drm_fd, uint32_t devid)
 
 	gputop_devinfo.n_eus = n_eus;
 	gputop_devinfo.n_eu_slices = __builtin_popcount(slice_mask);
+	gputop_devinfo.slice_mask = slice_mask;
 
 	/* Note: some of the metrics we have (as described in XML)
 	 * are conditional on a $SubsliceMask variable which is
@@ -683,6 +676,9 @@ init_dev_info(int drm_fd, uint32_t devid)
 	assert(0);
 #endif
     }
+
+    gputop_devinfo.eu_threads_count =
+	gputop_devinfo.n_eus * threads_per_eu;
 }
 
 static unsigned int
@@ -1399,18 +1395,13 @@ gputop_perf_initialize(void)
     page_size = sysconf(_SC_PAGE_SIZE);
 
     if (IS_HASWELL(intel_dev.device)) {
-	gputop_oa_add_render_basic_counter_query_hsw(&gputop_devinfo);
-	gputop_oa_add_compute_basic_counter_query_hsw(&gputop_devinfo);
-	gputop_oa_add_compute_extended_counter_query_hsw(&gputop_devinfo);
-	gputop_oa_add_memory_reads_counter_query_hsw(&gputop_devinfo);
-	gputop_oa_add_memory_writes_counter_query_hsw(&gputop_devinfo);
-	gputop_oa_add_sampler_balance_counter_query_hsw(&gputop_devinfo);
+	gputop_oa_add_queries_hsw(&gputop_devinfo);
     } else if (IS_BROADWELL(intel_dev.device)) {
-	gputop_oa_add_render_basic_counter_query_bdw(&gputop_devinfo);
+	gputop_oa_add_queries_bdw(&gputop_devinfo);
     } else if (IS_CHERRYVIEW(intel_dev.device)) {
-	gputop_oa_add_render_basic_counter_query_chv(&gputop_devinfo);
+	gputop_oa_add_queries_chv(&gputop_devinfo);
     } else if (IS_SKYLAKE(intel_dev.device)) {
-	gputop_oa_add_render_basic_counter_query_skl(&gputop_devinfo);
+	gputop_oa_add_queries_skl(&gputop_devinfo);
     } else
 	assert(0);
 

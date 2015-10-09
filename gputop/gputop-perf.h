@@ -58,7 +58,9 @@ struct gputop_devinfo {
     uint64_t n_eus;
     uint64_t n_eu_slices;
     uint64_t n_eu_sub_slices;
+    uint64_t eu_threads_count;
     uint64_t subslice_mask;
+    uint64_t slice_mask;
 };
 
 struct gputop_perf_query;
@@ -281,8 +283,9 @@ void gputop_perf_print_records(struct gputop_perf_stream *stream,
 bool gputop_perf_oa_trace_open(gputop_perf_query_type_t query_type);
 void gputop_perf_oa_trace_close(void);
 
-#define MAX_PERF_QUERIES 7
-extern struct gputop_perf_query perf_queries[MAX_PERF_QUERIES];
+extern struct gputop_perf_query perf_queries[I915_OA_METRICS_SET_MAX];
+extern int gputop_n_perf_queries;
+
 extern int gputop_perf_trace_buffer_size;
 extern uint8_t *gputop_perf_trace_buffer;
 extern bool gputop_perf_trace_empty;
