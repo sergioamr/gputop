@@ -126,6 +126,23 @@ extern bool gputop_gl_force_debug_ctx_enabled;
 extern atomic_bool gputop_gl_monitoring_enabled;
 extern atomic_bool gputop_gl_khr_debug_enabled;
 
+/* GL performance queries array
+ *
+ * We can have several different contexts per application but we assume
+ * that the list of available queries is constant for all the contexts.
+ */
+extern gputop_list_t gputop_gl_available_queries;
+
+/* Current context selected by the Glx application
+ */
+extern struct winsys_context *gputop_current_wctx;
+
+/* Number of available GL performance queries.
+ *
+ * Just populated on initialization from glGetNextPerfQueryIdINTEL
+ */
+extern unsigned int gputop_gl_available_n_queries;
+
 /* The number of query objects to delete if GL monitoring is disabled...
  *
  * We aim to delete all query objects when switching between GL

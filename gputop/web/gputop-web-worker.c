@@ -850,6 +850,44 @@ gputop_webworker_on_open_oa_query(uint32_t id,
     gputop_list_insert(open_queries.prev, &query->link);
 }
 
+//TODO(sergioamr) stub for open gl query #12
+void EMSCRIPTEN_KEEPALIVE
+gputop_webworker_on_open_gl_query(uint32_t id,
+                                  int perf_metric_set,
+                                  int period_exponent,
+                                  unsigned overwrite,
+                                  uint32_t aggregation_period,
+                                  unsigned live_updates,
+                                  const char *req_uuid)
+{
+    Gputop__Request req = GPUTOP__REQUEST__INIT;
+    Gputop__OpenQuery open = GPUTOP__OPEN_QUERY__INIT;
+    Gputop__GLQueryInfo gl_query = GPUTOP__GLQUERY_INFO__INIT;
+    struct gputop_worker_query *query = malloc(sizeof(*query));
+
+    memset(query, 0, sizeof(*query));
+
+    gputop_web_console_log("on_open_gl_query set=%d, exponent=%d, overwrite=%d live=%s agg_period=%"PRIu32"\n",
+                           perf_metric_set, period_exponent, overwrite,
+                           live_updates ? "true" : "false",
+                           aggregation_period);
+
+
+    open.id = id;
+    open.type_case = GPUTOP__OPEN_QUERY__TYPE_GL_QUERY;
+    open.gl_query = &gl_query;
+    open.live_updates = live_updates;
+    open.overwrite = overwrite;
+
+    req.uuid = req_uuid;
+    req.req_case = GPUTOP__REQUEST__REQ_OPEN_QUERY;
+    req.open_query = &open;
+
+    send_pb_message(socket, &req.base);
+
+    //TODO(sergioamr) // Do we have to add the query to the gputop_list of open queries?
+}
+
 void EMSCRIPTEN_KEEPALIVE
 gputop_webworker_on_close_oa_query(uint32_t id, char *req_uuid)
 {

@@ -181,6 +181,15 @@ bool gputop_gl_force_debug_ctx_enabled = false;
 atomic_bool gputop_gl_monitoring_enabled;
 atomic_int gputop_gl_n_queries;
 
+gputop_list_t gputop_gl_available_queries;
+
+/* Helpers for feature list
+ * TODO(sergioamr) Ask rob about where to put this
+ */
+
+struct winsys_context *gputop_current_wctx = NULL;
+unsigned int gputop_gl_available_n_queries = 0;
+
 void *
 gputop_passthrough_gl_resolve(const char *name)
 {
@@ -481,10 +490,13 @@ gputop_khr_debug_callback(GLenum source,
     gputop_log(level, message, length);
 }
 
+//TODO(sergioamr) Finish query count
+
 static void
 winsys_context_gl_initialise(struct winsys_context *wctx)
 {
     unsigned query_id = 0;
+    unsigned int query_count = 0;
 
     pthread_once(&initialise_gl_once, initialise_gl);
 
@@ -497,13 +509,19 @@ winsys_context_gl_initialise(struct winsys_context *wctx)
     while (query_id) {
 	struct intel_query_info *query_info = get_query_info(query_id);
 
+	/* We cache the first series of GL queries for the interface to be aware */
+
 	gputop_list_insert(wctx->queries.prev, &query_info->link);
 
 	pfn_glGetNextPerfQueryIdINTEL(query_id, &query_id);
 
 	while (pfn_glGetError() != GL_NO_ERROR)
 	    ;
+
+	query_count++;
     }
+
+    gputop_gl_available_n_queries = query_count;
 
     gputop_gl_use_khr_debug = gputop_gl_has_khr_debug_ext &&
 			      getenv("GPUTOP_USE_KHR_DEBUG") ? true : false;
@@ -756,9 +774,7 @@ gputop_glXDestroyContext(Display *dpy, GLXContext glx_ctx)
 static struct winsys_surface *
 winsys_surface_create(struct winsys_context *wctx, GLXWindow glx_window)
 {
-    struct winsys_surface *wsurface = xmalloc(sizeof(struct winsys_surface));
-
-    memset(wsurface, 0, sizeof(struct winsys_surface));
+    struct winsys_surface *wsurface = xmalloc0(sizeof(struct winsys_surface));
 
     /* XXX: gputop only supports drawables accessed from a single
      * context (see comment in glXSwapBuffers for further details
@@ -884,6 +900,10 @@ make_context_current(Display *dpy,
 	wctx->read_wsurface->wctx = wctx;
     }
 
+    pthread_rwlock_wrlock(&gputop_gl_lock);
+    //TODO(sergioamr) check thread safe
+    gputop_current_wctx = wctx;
+    pthread_rwlock_unlock(&gputop_gl_lock);
     return ret;
 
 }

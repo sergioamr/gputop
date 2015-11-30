@@ -625,7 +625,6 @@ gputop_stream_data_pending(struct gputop_perf_stream *stream)
     }
 
     assert(0);
-
 }
 
 /* Perf supports a flight recorder mode whereby it won't stop writing

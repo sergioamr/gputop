@@ -539,6 +539,66 @@ stream_close_cb(struct gputop_perf_stream *stream)
     gputop_list_remove(&stream->user.link);
 }
 
+//TODO(sergioamr)
+static void
+handle_open_gl_query(h2o_websocket_conn_t *conn,
+                               Gputop__Request *request)
+{
+  /*
+    Gputop__OpenQuery *open_query = request->open_query;
+    uint32_t id = open_query->id;
+    uint32_t  *gl_query_info = open_query->gl_query;
+    struct gputop_perf_query *perf_query;
+    struct gputop_perf_stream *stream;
+    char *error = NULL;
+    int buffer_size;
+    Gputop__Message message = GPUTOP__MESSAGE__INIT;
+
+    if (!gputop_perf_initialize()) {
+        message.reply_uuid = request->uuid;
+        message.cmd_case = GPUTOP__MESSAGE__CMD_ERROR;
+        message.error = "Failed to initialize perf\n";
+        send_pb_message(conn, &message.base);
+        return;
+    }
+    dbg("handle_open_gl_query\n");
+
+    //TODO(sergioamr) Find how to query to get the data
+
+    // Query Opengl query
+
+    stream = gputop_open_i915_perf_oa_query(perf_query,
+                                            oa_query_info->period_exponent,
+                                            buffer_size,
+                                            perf_ready_cb,
+                                            open_query->overwrite,
+                                            &error);
+    if (stream) {
+        stream->user.id = id;
+        stream->user.data = NULL;
+        stream->user.destroy_cb = stream_close_cb;
+        gputop_list_init(&stream->user.link);
+        gputop_list_insert(streams.prev, &stream->user.link);
+
+        if (open_query->live_updates)
+            uv_timer_start(&timer, periodic_forward_cb, 200, 200);
+
+        if (open_query->overwrite)
+            uv_timer_start(&timer, periodic_update_head_pointers, 200, 200);
+    } else {
+        dbg("Failed to open perf query set=%d period=%d: %s\n",
+            oa_query_info->metric_set, oa_query_info->period_exponent,
+            error);
+        free(error);
+    }
+
+    message.reply_uuid = request->uuid;
+    message.cmd_case = GPUTOP__MESSAGE__CMD_ACK;
+    message.ack = true;
+    send_pb_message(conn, &message.base);
+    */
+}
+
 static void
 handle_open_i915_perf_oa_query(h2o_websocket_conn_t *conn,
 			       Gputop__Request *request)
@@ -725,6 +785,10 @@ handle_open_query(h2o_websocket_conn_t *conn, Gputop__Request *request)
 
 
     switch (open_query->type_case) {
+    //TODO(sergioamr) stub for open gl query #12
+    case GPUTOP__OPEN_QUERY__TYPE_GL_QUERY:
+        handle_open_gl_query(conn, request);
+        break;
     case GPUTOP__OPEN_QUERY__TYPE_OA_QUERY:
 	handle_open_i915_perf_oa_query(conn, request);
 	break;
@@ -855,6 +919,102 @@ read_cpu_model(char *buf, int len)
     return false;
 }
 
+//TODO(sergioamr) Check
+
+/* Flattens the list to pass it to the web worker
+ * Assumed that all the GL queries contain the same amount of items.
+ *
+ * Replicate the intel_query_info for the web worker.
+ */
+static Gputop__GLQueryInfo *
+gputop_pb_get_GLQueryInfo(struct intel_query_info *q) {
+    int i = 0;
+    Gputop__GLCounter *counter;
+    Gputop__GLQueryInfo *gl_query;
+    struct intel_counter *c;
+
+    if (q == NULL)
+        return NULL;
+
+    gl_query = xmalloc0(
+            sizeof(Gputop__GLQueryInfo) * gputop_gl_available_n_queries);
+    gputop__glquery_info__init(gl_query);
+
+    printf("* Object Name %s \n", q->name);
+    gl_query->id = q->id;
+    gl_query->name = q->name;
+    gl_query->n_counters = q->n_counters;
+
+    for (i = 0; i < gl_query->n_counters; i++) {
+        counter = xmalloc0(
+                sizeof(Gputop__GLQueryInfo) * gputop_gl_available_n_queries);
+        gputop__glcounter__init(counter);
+
+        c = &q->counters[i];
+
+        counter->name = c->name;
+        counter->description = c->description;
+        counter->type = c->type;
+        counter->data_type = c->data_type;
+        counter->maximum = c->max_raw_value;
+
+        gl_query->counters[i] = counter;
+    }
+
+    return gl_query;
+}
+
+//TODO(sergioamr) Check
+
+/* Free the protobuffer for the GL query and counters.
+ */
+static void gputop_pb_free_gl_queries_info(Gputop__GLQueryInfo **gl_queries, unsigned int n_queries) {
+    int i, t;
+
+    if (gl_queries == NULL)
+        return;
+
+    for (t = 0; t < n_queries; t++) {
+        Gputop__GLQueryInfo *gl_query = gl_queries[t];
+        for (i = 0; i < gl_query->n_counters; i++) {
+            Gputop__GLCounter *counter = gl_query->counters[i];
+            free(counter);
+        }
+
+        free(gl_query->counters);
+        free(gl_query);
+    }
+    free(gl_queries);
+}
+
+//TODO(sergioamr) stub for #12
+Gputop__GLQueryInfo **
+gputop_get_gl_available_queries() {
+    int i = 0;
+
+    struct winsys_context *wctx = gputop_current_wctx;
+    struct intel_query_info *obj, *tmp;
+    Gputop__GLQueryInfo **queries_info;
+
+    queries_info = xmalloc0(gputop_gl_available_n_queries * sizeof(void *));
+
+    pthread_rwlock_wrlock(&gputop_gl_lock);
+    wctx = gputop_current_wctx;
+    if (wctx == NULL) {
+        pthread_rwlock_unlock(&gputop_gl_lock);
+        assert(gputop_gl_available_n_queries != 0);
+        return NULL;
+    }
+
+    gputop_list_for_each_safe(obj,tmp, &wctx->queries, link) {
+        queries_info[i++] = gputop_pb_get_GLQueryInfo(obj);
+    }
+
+    pthread_rwlock_unlock(&gputop_gl_lock);
+
+    return queries_info;
+}
+
 static void
 handle_get_features(h2o_websocket_conn_t *conn,
 		    Gputop__Request *request)
@@ -862,6 +1022,7 @@ handle_get_features(h2o_websocket_conn_t *conn,
     char kernel_release[128];
     char kernel_version[256];
     char cpu_model[128];
+
     Gputop__Message message = GPUTOP__MESSAGE__INIT;
     Gputop__Features features = GPUTOP__FEATURES__INIT;
     Gputop__DevInfo devinfo = GPUTOP__DEV_INFO__INIT;
@@ -888,6 +1049,10 @@ handle_get_features(h2o_websocket_conn_t *conn,
     features.has_i915_oa = true;
 
     features.n_cpus = query_n_cpus();
+
+    //TODO(sergioamr) Check functionality
+    features.n_gl_queries = gputop_gl_available_n_queries;
+    features.gl_queries = gputop_get_gl_available_queries();
 
     read_cpu_model(cpu_model, sizeof(cpu_model));
     features.cpu_model = cpu_model;
@@ -919,6 +1084,8 @@ handle_get_features(h2o_websocket_conn_t *conn,
     dbg("  Kernel Build = %s\n", features.kernel_build);
 
     send_pb_message(conn, &message.base);
+
+    gputop_pb_free_gl_queries_info(features.gl_queries);
 }
 
 static void on_ws_message(h2o_websocket_conn_t *conn,
