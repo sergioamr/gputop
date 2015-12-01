@@ -32,6 +32,10 @@
  */
 #include "stdatomic.h"
 
+#ifdef SUPPORT_WEBUI
+#include "gputop.pb-c.h"
+#endif
+
 #include "gputop-list.h"
 
 struct intel_counter
@@ -126,17 +130,6 @@ extern bool gputop_gl_force_debug_ctx_enabled;
 extern atomic_bool gputop_gl_monitoring_enabled;
 extern atomic_bool gputop_gl_khr_debug_enabled;
 
-/* GL performance queries array
- *
- * We can have several different contexts per application but we assume
- * that the list of available queries is constant for all the contexts.
- */
-extern gputop_list_t gputop_gl_available_queries;
-
-/* Current context selected by the Glx application
- */
-extern struct winsys_context *gputop_current_wctx;
-
 /* Number of available GL performance queries.
  *
  * Just populated on initialization from glGetNextPerfQueryIdINTEL
@@ -158,5 +151,9 @@ extern unsigned int gputop_gl_available_n_queries;
  */
 extern atomic_int gputop_gl_n_queries;
 
+#ifdef SUPPORT_WEBUI
+extern void gputop_pb_free_gl_queries_info(Gputop__GLQueryInfo **gl_queries, size_t n_queries);
+Gputop__GLQueryInfo **gputop_get_pb_gl_available_queries(size_t *n_gl_queries);
+#endif
 
 #endif /* _GPUTOP_GL_H_ */

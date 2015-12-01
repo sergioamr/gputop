@@ -1134,3 +1134,115 @@ gputop_glDebugMessageCallback(GLDEBUGPROC callback,
 {
     dbg("Ignoring application's conflicting use of KHR_debug extension");
 }
+
+#ifdef SUPPORT_WEBUI
+//TODO(sergioamr) stub for #12
+
+/* Flattens the list to pass it to the web worker
+ * Assumed that all the GL queries contain the same amount of items.
+ *
+ * Replicate the intel_query_info for the web worker.
+ */
+static Gputop__GLQueryInfo *
+gputop_pb_get_GLQueryInfo(struct intel_query_info *q)
+{
+    int i;
+    Gputop__GLCounter *counter;
+    Gputop__GLQueryInfo *gl_query;
+    struct intel_counter *c;
+
+    assert(q != NULL);
+
+    gl_query = xmalloc0(sizeof(Gputop__GLQueryInfo));
+    gputop__glquery_info__init(gl_query);
+
+    printf("* Object Name %s \n", q->name); //TODO(sergioamr) remove output
+    gl_query->id = q->id;
+    gl_query->name = q->name;
+    gl_query->n_counters = q->n_counters;
+
+    gl_query->counters = xmalloc0(q->n_counters * sizeof(void *));
+
+    for (i = 0; i < gl_query->n_counters; i++) {
+        counter = xmalloc0(sizeof(Gputop__GLCounter));
+        gputop__glcounter__init(counter);
+
+        c = &q->counters[i];
+
+        counter->name = c->name;
+        counter->description = c->description;
+        counter->type = c->type;
+        counter->data_type = c->data_type;
+        counter->maximum = c->max_raw_value;
+
+        gl_query->counters[i] = counter;
+    }
+
+    return gl_query;
+}
+
+/* GL performance queries array
+ *
+ * Get the current list of available queries ready for the protobuffer.
+ *
+ * Return the list of available queries by populating n_gl_queries.
+ */
+Gputop__GLQueryInfo **
+gputop_get_pb_gl_available_queries(size_t *n_gl_queries)
+{
+    int i = 0;
+    size_t n_queries = 0;
+    struct winsys_context **contexts;
+    struct winsys_context *wctx;
+    struct intel_query_info *obj;
+    Gputop__GLQueryInfo **queries_info;
+
+    pthread_rwlock_wrlock(&gputop_gl_lock);
+    contexts = gputop_gl_contexts->data;
+    wctx = contexts[0];
+    assert(wctx != NULL);
+
+    n_queries = gputop_list_length(&wctx->queries);
+    if (n_queries == 0) {
+        /* We don't have any queries on the list */
+        pthread_rwlock_unlock(&gputop_gl_lock);
+        *n_gl_queries = 0;
+        return NULL;
+    }
+
+    queries_info = xmalloc0(n_queries * sizeof(void *));
+
+    gputop_list_for_each(obj, &wctx->queries, link) {
+        queries_info[i++] = gputop_pb_get_GLQueryInfo(obj);
+    }
+
+    pthread_rwlock_unlock(&gputop_gl_lock);
+    *n_gl_queries = n_queries;
+
+    return queries_info;
+}
+
+
+/* Free the protobuffer for the GL query and counters.
+ */
+void gputop_pb_free_gl_queries_info(Gputop__GLQueryInfo **gl_queries,
+                                    size_t n_queries)
+{
+    int i, t;
+
+    if (gl_queries == NULL)
+        return;
+
+    for (t = 0; t < n_queries; t++) {
+        Gputop__GLQueryInfo *gl_query = gl_queries[t];
+        for (i = 0; i < gl_query->n_counters; i++) {
+            Gputop__GLCounter *counter = gl_query->counters[i];
+            free(counter);
+        }
+
+        free(gl_query->counters);
+        free(gl_query);
+    }
+    free(gl_queries);
+}
+#endif
