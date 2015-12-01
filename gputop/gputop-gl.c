@@ -183,13 +183,6 @@ atomic_int gputop_gl_n_queries;
 
 gputop_list_t gputop_gl_available_queries;
 
-/* Helpers for feature list
- * TODO(sergioamr) Ask rob about where to put this
- */
-
-struct winsys_context *gputop_current_wctx = NULL;
-unsigned int gputop_gl_available_n_queries = 0;
-
 void *
 gputop_passthrough_gl_resolve(const char *name)
 {
@@ -901,11 +894,7 @@ make_context_current(Display *dpy,
     }
 
     pthread_rwlock_wrlock(&gputop_gl_lock);
-    //TODO(sergioamr) check thread safe
-    gputop_current_wctx = wctx;
-    pthread_rwlock_unlock(&gputop_gl_lock);
     return ret;
-
 }
 
 Bool
@@ -1138,18 +1127,15 @@ gputop_glDebugMessageCallback(GLDEBUGPROC callback,
 #ifdef SUPPORT_WEBUI
 //TODO(sergioamr) stub for #12
 
-/* Flattens the list to pass it to the web worker
- * Assumed that all the GL queries contain the same amount of items.
- *
- * Replicate the intel_query_info for the web worker.
+/* Replicates the intel_query_info for the web worker.
  */
 static Gputop__GLQueryInfo *
-gputop_pb_get_GLQueryInfo(struct intel_query_info *q)
+gputop_pb_get_GLQueryInfo(const struct intel_query_info *q)
 {
     int i;
     Gputop__GLCounter *counter;
     Gputop__GLQueryInfo *gl_query;
-    struct intel_counter *c;
+    const struct intel_counter *c;
 
     assert(q != NULL);
 
@@ -1158,7 +1144,7 @@ gputop_pb_get_GLQueryInfo(struct intel_query_info *q)
 
     printf("* Object Name %s \n", q->name); //TODO(sergioamr) remove output
     gl_query->id = q->id;
-    gl_query->name = q->name;
+    gl_query->name = (char *) q->name;
     gl_query->n_counters = q->n_counters;
 
     gl_query->counters = xmalloc0(q->n_counters * sizeof(void *));
@@ -1169,8 +1155,8 @@ gputop_pb_get_GLQueryInfo(struct intel_query_info *q)
 
         c = &q->counters[i];
 
-        counter->name = c->name;
-        counter->description = c->description;
+        counter->name = (char *) c->name;
+        counter->description = (char *) c->description;
         counter->type = c->type;
         counter->data_type = c->data_type;
         counter->maximum = c->max_raw_value;
@@ -1183,7 +1169,8 @@ gputop_pb_get_GLQueryInfo(struct intel_query_info *q)
 
 /* GL performance queries array
  *
- * Get the current list of available queries ready for the protobuffer.
+ * Get the current list of available queries ready to
+ * be sent using protobuffers.
  *
  * Return the list of available queries by populating n_gl_queries.
  */
@@ -1221,7 +1208,6 @@ gputop_get_pb_gl_available_queries(size_t *n_gl_queries)
 
     return queries_info;
 }
-
 
 /* Free the protobuffer for the GL query and counters.
  */
