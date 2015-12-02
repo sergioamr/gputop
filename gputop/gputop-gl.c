@@ -1118,11 +1118,6 @@ gputop_glDebugMessageCallback(GLDEBUGPROC callback,
 }
 
 #ifdef SUPPORT_WEBUI
-<<<<<<< HEAD
-=======
-//TODO(sergioamr) stub for #12
-
->>>>>>> ecc96f80abe8368b4a58ce237f47ce2f248360f1
 /* Replicates the intel_query_info for the web worker.
  */
 static Gputop__GLQueryInfo *
