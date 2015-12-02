@@ -1118,8 +1118,6 @@ gputop_glDebugMessageCallback(GLDEBUGPROC callback,
 }
 
 #ifdef SUPPORT_WEBUI
-//TODO(sergioamr) stub for #12
-
 /* Replicates the intel_query_info for the web worker.
  */
 static Gputop__GLQueryInfo *
@@ -1135,7 +1133,6 @@ gputop_pb_get_GLQueryInfo(const struct intel_query_info *q)
     gl_query = xmalloc0(sizeof(Gputop__GLQueryInfo));
     gputop__glquery_info__init(gl_query);
 
-    printf("* Object Name %s \n", q->name); //TODO(sergioamr) remove output
     gl_query->id = q->id;
     gl_query->name = (char *) q->name;
     gl_query->n_counters = q->n_counters;
