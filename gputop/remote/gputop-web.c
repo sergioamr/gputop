@@ -75,6 +75,7 @@ static gputop_list_t open_queries;
 
 struct oa_sample {
    struct i915_perf_record_header header;
+   uint32_t pid;
    uint8_t oa_report[];
 };
 
@@ -308,6 +309,7 @@ handle_oa_query_i915_perf_data(struct gputop_worker_query *query, uint8_t *data,
 	    return;
 	}
 #endif
+        gputop_web_console_log("Header %x size=%d type = %d", header, header->size, header->type);
 
 	switch (header->type) {
 
@@ -320,6 +322,7 @@ handle_oa_query_i915_perf_data(struct gputop_worker_query *query, uint8_t *data,
 
 	case DRM_I915_PERF_RECORD_SAMPLE: {
 	    struct oa_sample *sample = (struct oa_sample *)header;
+	    uint32_t pid = sample->pid;
 	    uint8_t *report = sample->oa_report;
 	    uint32_t raw_timestamp = read_report_raw_timestamp((uint32_t *)report);
 	    uint64_t timestamp;
@@ -345,8 +348,8 @@ handle_oa_query_i915_perf_data(struct gputop_worker_query *query, uint8_t *data,
 		timestamp = oa_clock_get_time(&query->oa_clock);
 	    }
 
-	    //gputop_web_console_log("timestamp = %"PRIu64" target duration=%u",
-	    //			     timestamp, (unsigned)(end_timestamp - query->start_timestamp));
+	    gputop_web_console_log("PID %d timestamp = %"PRIu64" target duration=%u", pid,
+	    			     timestamp, (unsigned)(end_timestamp - query->start_timestamp));
             if (timestamp >= end_timestamp) {
 		forward_query_update(query);
 		memset(oa_query->accumulator, 0, sizeof(oa_query->accumulator));

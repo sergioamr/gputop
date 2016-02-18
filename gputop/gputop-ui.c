@@ -185,6 +185,7 @@ i915_perf_oa_overview_open(struct gputop_perf_query *query,
                                        32 * sysconf(_SC_PAGE_SIZE),
                                        gputop_perf_read_samples,
                                        false,
+                                       true,
                                        &error);
 
     if (!gputop_current_perf_stream) {
@@ -290,6 +291,7 @@ gputop_i915_perf_oa_trace_open(struct gputop_perf_query *query,
                                        32 * sysconf(_SC_PAGE_SIZE),
                                        gputop_perf_read_samples,
                                        false,
+                                       true,
                                        &error);
     if (!gputop_current_perf_stream) {
         gputop_log(GPUTOP_LOG_LEVEL_HIGH, error, -1);

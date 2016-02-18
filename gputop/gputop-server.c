@@ -42,6 +42,9 @@
 #include <h2o/websocket.h>
 #include <wslay/wslay_event.h>
 
+// libproc-dev
+#include <proc/readproc.h>
+
 #include "gputop-server.h"
 #include "gputop-perf.h"
 #include "gputop-util.h"
@@ -607,6 +610,7 @@ handle_open_i915_perf_oa_query(h2o_websocket_conn_t *conn,
                                             buffer_size,
                                             NULL,
                                             open_query->overwrite,
+                                            true,
                                             &error);
     if (stream) {
         stream->user.id = id;
@@ -827,6 +831,25 @@ handle_close_query(h2o_websocket_conn_t *conn,
 }
 
 static void
+handle_get_processes(h2o_websocket_conn_t *conn,
+                    Gputop__Request *request) {
+
+    Gputop__Message message = GPUTOP__MESSAGE__INIT;
+
+    PROCTAB* proc = openproc(PROC_FILLMEM | PROC_FILLSTAT | PROC_FILLSTATUS);
+
+    proc_t proc_info;
+    memset(&proc_info, 0, sizeof(proc_info));
+    while (readproc(proc, &proc_info) != NULL) {
+      printf("%20s:\t%5ld\t%5lld\t%5lld\n",
+             proc_info.cmd, proc_info.resident,
+             proc_info.utime, proc_info.stime);
+    }
+
+    closeproc(proc);
+}
+
+static void
 handle_get_features(h2o_websocket_conn_t *conn,
                     Gputop__Request *request)
 {
@@ -929,6 +952,10 @@ static void on_ws_message(h2o_websocket_conn_t *conn,
         }
 
         switch (request->req_case) {
+        case GPUTOP__REQUEST__REQ_GET_PROCESSES:
+            fprintf(stderr, "GetFeatures request received\n");
+            handle_get_features(conn, request);
+            break;
         case GPUTOP__REQUEST__REQ_GET_FEATURES:
             fprintf(stderr, "GetFeatures request received\n");
             handle_get_features(conn, request);

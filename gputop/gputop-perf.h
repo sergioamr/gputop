@@ -333,6 +333,7 @@ gputop_open_i915_perf_oa_query(struct gputop_perf_query *query,
                                size_t perf_buffer_size,
                                void (*ready_cb)(struct gputop_perf_stream *),
                                bool overwrite,
+                               bool get_pids,
                                char **error);
 struct gputop_perf_stream *
 gputop_perf_open_trace(int pid,

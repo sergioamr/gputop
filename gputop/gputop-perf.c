@@ -68,12 +68,13 @@
 /* Samples read() from i915 perf */
 struct oa_sample {
    struct i915_perf_record_header header;
+   uint32_t pid;
    uint8_t oa_report[];
 };
 
 #define MAX_I915_PERF_OA_SAMPLE_SIZE (8 +   /* i915_perf_record_header */ \
+                                      4 +   /* pid from the sample */     \
                                       256)  /* raw OA counter snapshot */
-
 
 #define TAKEN(HEAD, TAIL, POT_SIZE)    (((HEAD) - (TAIL)) & (POT_SIZE - 1))
 
@@ -352,6 +353,7 @@ gputop_open_i915_perf_oa_query(struct gputop_perf_query *query,
                                size_t perf_buffer_size,
                                void (*ready_cb)(struct gputop_perf_stream *),
                                bool overwrite,
+                               bool get_pids,
                                char **error)
 {
     struct gputop_perf_stream *stream;
@@ -379,6 +381,17 @@ gputop_open_i915_perf_oa_query(struct gputop_perf_query *query,
 
         properties[p++] = DRM_I915_PERF_OA_EXPONENT_PROP;
         properties[p++] = period_exponent;
+
+        if (get_pids) {
+            properties[p++] = DRM_I915_PERF_RING_PROP;
+            properties[p++] = I915_EXEC_RENDER;
+
+            properties[p++] = DRM_I915_PERF_SAMPLE_PID_PROP;
+            properties[p++] = true;
+
+            //properties[p++] = DRM_I915_PERF_SAMPLE_TAG_PROP;
+            //properties[p++] = true;
+        }
 
         if (query->per_ctx_mode) {
             struct ctx_handle *ctx;
