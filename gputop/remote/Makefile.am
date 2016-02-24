@@ -17,7 +17,8 @@ third_party_files = \
 	bootstrap/fonts/glyphicons-halflings-regular.ttf \
 	bootstrap/fonts/glyphicons-halflings-regular.eot \
 	bootstrap/fonts/glyphicons-halflings-regular.woff2 \
-	bootstrap/fonts/glyphicons-halflings-regular.svg
+	bootstrap/fonts/glyphicons-halflings-regular.svg \
+	bootbox.min.js
 
 remotedir = $(datadir)/remote
 nobase_dist_remote_DATA = \

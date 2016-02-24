@@ -177,7 +177,7 @@ read_report_raw_timestamp(const uint32_t *report)
 #define JS_MAX_SAFE_INTEGER (((uint64_t)1<<53) - 1)
 
 void
-_gputop_query_update_counter(int counter, int id,
+_gputop_query_update_counter(int pid, int counter, int id,
         double start_timestamp, double end_timestamp,
         double delta, double max, double ui64_value);
 
@@ -200,7 +200,7 @@ get_counter_id(const char *guid, const char *counter_symbol_name)
 }
 
 static void
-forward_query_update(struct gputop_worker_query *query)
+forward_query_update(uint32_t pid, struct gputop_worker_query *query)
 {
     struct gputop_perf_query *oa_query = query->oa_query;
     uint64_t delta;
@@ -246,7 +246,7 @@ forward_query_update(struct gputop_worker_query *query)
             break;
         }
 
-        _gputop_query_update_counter(i, query->id,
+        _gputop_query_update_counter(pid, i, query->id,
                     query->start_timestamp, query->end_timestamp,
                     delta, max, d_value);
     }
@@ -309,7 +309,7 @@ handle_oa_query_i915_perf_data(struct gputop_worker_query *query, uint8_t *data,
 	    return;
 	}
 #endif
-        gputop_web_console_log("Header %x size=%d type = %d", header, header->size, header->type);
+        //gputop_web_console_log("Header %x size=%d type = %d", header, header->size, header->type);
 
 	switch (header->type) {
 
@@ -348,10 +348,10 @@ handle_oa_query_i915_perf_data(struct gputop_worker_query *query, uint8_t *data,
 		timestamp = oa_clock_get_time(&query->oa_clock);
 	    }
 
-	    gputop_web_console_log("PID %d timestamp = %"PRIu64" target duration=%u", pid,
-	    			     timestamp, (unsigned)(end_timestamp - query->start_timestamp));
+	    //gputop_web_console_log("PID %d timestamp = %"PRIu64" target duration=%u", pid,
+	    //			     timestamp, (unsigned)(end_timestamp - query->start_timestamp));
             if (timestamp >= end_timestamp) {
-		forward_query_update(query);
+		forward_query_update(pid, query);
 		memset(oa_query->accumulator, 0, sizeof(oa_query->accumulator));
 		query->start_timestamp = timestamp;
 
@@ -435,7 +435,7 @@ handle_i915_perf_message(int id, uint8_t *data, int len)
 {
     struct gputop_worker_query *query;
 
-    printf(" %x ", data[0]);
+    //printf(" %x ", data[0]);
 
     gputop_list_for_each(query, &open_queries, link) {
 
@@ -555,6 +555,6 @@ myloop() {
 int
 main() {
     emscripten_set_main_loop(myloop, 0, 1);
-    printf("emscripten_set_main_loop!\n");
+    //printf("emscripten_set_main_loop!\n");
     return 0;
 }

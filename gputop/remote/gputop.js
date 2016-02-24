@@ -127,6 +127,7 @@ Metric.prototype.find_counter_by_name = function(symbol_name) {
 }
 
 Metric.prototype.add_new_counter = function(emc_guid, symbol_name, counter) {
+    debugger;
     counter.idx_ = this.n_total_counters_++;
     counter.symbol_name = symbol_name;
 
@@ -145,6 +146,30 @@ Metric.prototype.add_new_counter = function(emc_guid, symbol_name, counter) {
 
     this.counters_map_[symbol_name] = counter;
     this.counters_[counter.idx_] = counter;
+}
+
+//----------------------------- PID --------------------------------------
+function Process_info () {
+    this.pid_ = 0;
+    this.process_name_ = "empty";
+    this.cmd_line_ = "empty";
+    this.active_ = false;
+    this.process_path_ = "empty";
+
+    // List of ctx ids on this process
+    this.context_ids_ = [];
+}
+
+Process_info.prototype.update = function(process) {
+    this.pid_ = process.pid;
+    this.cmd_line_ = process.cmd_line;
+    var res = this.cmd_line_.split(" ", 2);
+
+    this.process_path_ = res[0];
+
+    var path = res[0].split("/");
+    this.process_name_ = path[path.length-1];
+    gputop_ui.update_process(this.pid_, this.process_name_);
 }
 
 //------------------------------ GPUTOP --------------------------------------
@@ -184,6 +209,21 @@ function Gputop () {
     // Current metric on display
     this.metric_visible_ = undefined;
     this.period = 1000000000;
+
+    // Callbacks for messages usign the reply id
+    this.gputop_callbacks_ = [];
+
+    // Process list map organized by PID
+    this.map_processes_ = [];
+}
+
+Gputop.prototype.get_process_by_pid = function(pid) {
+    var process = this.map_processes_[pid];
+    if (process == undefined) {
+        process = new Process_info();
+        this.map_processes_[pid] = process;
+    }
+    return process;
 }
 
 Gputop.prototype.get_metrics_xml = function() {
@@ -193,7 +233,7 @@ Gputop.prototype.get_metrics_xml = function() {
 // Remember to free this tring
 function emc_str_copy(string_to_convert) {
     var buf = Module._malloc(string_to_convert.length+1); // Zero terminated
-    stringToAscii(string_to_convert, buf);
+    Module.stringToAscii(string_to_convert, buf);
     return buf;
 }
 
@@ -212,9 +252,11 @@ Gputop.prototype.read_counter_xml = function() {
 
         var counter = new Counter();
         counter.xml_ = $cnt;
+
         metric.add_new_counter(emc_guid, symbol_name, counter);
     } catch (e) {
-        gputop_ui.syslog("Catch parsing counter " + e);
+        debugger;
+        gputop_ui.show_alert("Catch parsing counter " + e, "alert-danger");
     }
 }
 
@@ -262,11 +304,13 @@ function gputop_read_metrics_set() {
         params = [ metric, gputop.get_emc_guid(guid) ];
         $set.find("counter").each(gputop.read_counter_xml, params);
     } catch (e) {
-        gputop_ui.syslog("Catch parsing metric " + e);
+        debugger;
+        gputop_ui.show_alert("Catch parsing counter " + e, "alert-danger");
     }
 } // read_metrics_set
 
-Gputop.prototype.query_update_counter = function (counterId, id, start_timestamp, end_timestamp, delta, max, d_value) {
+Gputop.prototype.query_update_counter = function (pid, counterId, id, start_timestamp, end_timestamp, delta, max, d_value) {
+    debugger;
     var metric = this.query_metric_handles_[id];
     if (metric == undefined) {
         //TODO Close this query which is not being captured
@@ -296,6 +340,7 @@ Gputop.prototype.load_xml_metrics = function(xml) {
 
 Gputop.prototype.load_oa_queries = function(architecture) {
     this.config_.architecture = architecture;
+    debugger;
     // read counters from xml file and populate the website
     gputop.xml_file_name_ = "oa-"+ architecture +".xml";
     $.get(gputop.xml_file_name_, this.load_xml_metrics);
@@ -450,7 +495,7 @@ Gputop.prototype.get_emc_guid = function(guid) {
     if (gputop.buffer_guid_ == undefined)
         gputop.buffer_guid_ = Module._malloc(guid.length+1); // Zero terminated
 
-    stringToAscii(guid,  gputop.buffer_guid_);
+    Module.stringToAscii(guid,  gputop.buffer_guid_);
     return gputop.buffer_guid_;
 }
 
@@ -562,6 +607,18 @@ Gputop.prototype.dispose = function() {
     gputop.query_active_ = undefined;
 }
 
+Gputop.prototype.get_process_info = function(pid, callback) {
+    var msg = new this.builder_.Request();
+    var uuid = this.generate_uuid();
+
+    this.gputop_callbacks_[uuid] = callback;
+
+    msg.uuid = uuid;
+    msg.get_process_info = pid;
+    msg.encode();
+    this.socket_.send(msg.toArrayBuffer());
+}
+
 Gputop.prototype.get_socket = function(websocket_url) {
     var socket = new WebSocket(websocket_url, "binary");
     socket.binaryType = "arraybuffer";
@@ -598,6 +655,7 @@ Gputop.prototype.get_socket = function(websocket_url) {
                 break;
                 case 2: /* WS_MESSAGE_PROTOBUF */
                     var msg = gputop.builder_.Message.decode(data);
+
                     if (msg.features != undefined) {
                         gputop_ui.syslog("Features: "+msg.features.get_cpu_model());
                         gputop.process_features(msg.features);
@@ -619,6 +677,13 @@ Gputop.prototype.get_socket = function(websocket_url) {
                         entries.forEach(function(entry) {
                             gputop_ui.log(entry.log_level, entry.log_message);
                         });
+                    }
+                    if (msg.process_info != undefined) {
+                        var pid = msg.process_info.pid;
+                        var process = gputop.get_process_by_pid(pid);
+
+                        process.update(msg.process_info);
+                        gputop_ui.syslog(msg.reply_uuid + " recv: Console process info "+pid);
                     }
                     if (msg.close_notify != undefined) {
                         var id = msg.close_notify.id;
@@ -645,6 +710,14 @@ Gputop.prototype.get_socket = function(websocket_url) {
 
                             }
                         });
+                    }
+
+                    var callback = gputop.gputop_callbacks_[msg.uuid];
+                    gputop.gputop_callbacks_[msg.uuid] = undefined;
+
+                    if (callback != undefined) {
+                        debugger;
+                        callback(msg);
                     }
 
                 break;

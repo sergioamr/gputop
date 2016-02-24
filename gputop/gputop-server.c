@@ -42,9 +42,6 @@
 #include <h2o/websocket.h>
 #include <wslay/wslay_event.h>
 
-// libproc-dev
-#include <proc/readproc.h>
-
 #include "gputop-server.h"
 #include "gputop-perf.h"
 #include "gputop-util.h"
@@ -827,23 +824,63 @@ handle_close_query(h2o_websocket_conn_t *conn,
     }
 }
 
-static void
-handle_get_processes(h2o_websocket_conn_t *conn,
-                    Gputop__Request *request) {
+bool
+gputop_get_cmd_line_pid(uint32_t pid, char *buf, int len)
+{
+    FILE *fp;
+    char *line = NULL;
+    size_t line_len = 0;
+    ssize_t read;
+    char pid_path[512];
+    bool res = false;
 
-    Gputop__Message message = GPUTOP__MESSAGE__INIT;
+    memset(buf, 0, len);
+    snprintf(buf, len, "Unknown");
 
-    PROCTAB* proc = openproc(PROC_FILLMEM | PROC_FILLSTAT | PROC_FILLSTATUS);
+    snprintf(pid_path, sizeof(pid_path), "/proc/%d/cmdline", pid);
+    fp = fopen(pid_path, "r");
+    if (!fp)
+        return false;
 
-    proc_t proc_info;
-    memset(&proc_info, 0, sizeof(proc_info));
-    while (readproc(proc, &proc_info) != NULL) {
-      printf("%20s:\t%5ld\t%5lld\t%5lld\n",
-             proc_info.cmd, proc_info.resident,
-             proc_info.utime, proc_info.stime);
+    read = getline(&line, &line_len, fp);
+    if (read!= -1) {
+        printf("Reading line %s", line);
+        snprintf(buf, len, "%s", line);
+        res = true;
     }
 
-    closeproc(proc);
+    fclose(fp);
+    free(line);
+    return res;
+}
+
+char cpu_model[128];
+
+static void
+handle_get_process_info(h2o_websocket_conn_t *conn,
+                    Gputop__Request *request) {
+
+    char cmdline[128];
+    uint32_t pid = request->get_process_info;
+
+    Gputop__Message message = GPUTOP__MESSAGE__INIT;
+    Gputop__ProcessInfo process_info = GPUTOP__PROCESS_INFO__INIT;
+
+    message.reply_uuid = request->uuid;
+
+    if (gputop_get_cmd_line_pid(pid, cmdline, sizeof(cmdline))) {
+        dbg("  Sending PID = %d\n", pid);
+        message.cmd_case = GPUTOP__MESSAGE__CMD_PROCESS_INFO;
+        process_info.pid = pid;
+        process_info.cmd_line = cmdline;
+        message.process_info = &process_info;
+        send_pb_message(conn, &message.base);
+        return;
+    }
+
+    message.cmd_case = GPUTOP__MESSAGE__CMD_ERROR;
+    message.error = "Failed to find process\n";
+    send_pb_message(conn, &message.base);
 }
 
 static void
@@ -949,9 +986,9 @@ static void on_ws_message(h2o_websocket_conn_t *conn,
         }
 
         switch (request->req_case) {
-        case GPUTOP__REQUEST__REQ_GET_PROCESSES:
+        case GPUTOP__REQUEST__REQ_GET_PROCESS_INFO:
             fprintf(stderr, "GetFeatures request received\n");
-            handle_get_features(conn, request);
+            handle_get_process_info(conn, request);
             break;
         case GPUTOP__REQUEST__REQ_GET_FEATURES:
             fprintf(stderr, "GetFeatures request received\n");
