@@ -597,6 +597,7 @@ handle_open_i915_perf_oa_query(h2o_websocket_conn_t *conn,
     else
         buffer_size = 16 * 1024 * 1024;
 
+    perf_query->pid_mode = open_query->pid_mode;
     perf_query->per_ctx_mode = open_query->per_ctx_mode;
 
     stream = gputop_open_i915_perf_oa_query(perf_query,
@@ -604,7 +605,6 @@ handle_open_i915_perf_oa_query(h2o_websocket_conn_t *conn,
                                             buffer_size,
                                             NULL,
                                             open_query->overwrite,
-                                            true,
                                             &error);
     if (stream) {
         stream->user.id = id;

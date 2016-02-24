@@ -15,8 +15,11 @@
     <div style="display: table-cell; padding-left:25px; vertical-align: middle">
         <b>Adjust Speed: &nbsp</b> <input type="text" value="1000000000" data-slider-min="10000000" data-slider-max="1000000000" data-slider-step="10000000" data-slider-value="1000000000" data-slider-id="slider_style" id="speed_slider">
     </div>
+    <div class="checkbox" id="pid_mode_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle">
+        <label><input type = "checkbox" id = "pid_mode"><b>Pid mode</b> <small>(experimental)</small></label>
+    </div>
     <div class="checkbox" id="per_ctx_mode_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle">
-        <label><input type = "checkbox" id = "per_ctx_mode"><b>Per context mode</b></label>
+        <label><input type = "checkbox" id = "per_ctx_mode"><b>Per context mode</b> <small>(experimental)</small></label>
     </div>
     <div class="checkbox" id="unsupported_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle">
         <label><input type = "checkbox" id = "hide_metrics"><b>Hide unsupported</b></label>
@@ -276,6 +279,24 @@
         } else {
             metric.per_ctx_mode_ = false;
             console.log("Switching Off "+metric.name_+" per context");
+        }
+
+        gputop.open_oa_query_for_trace(global_guid);
+    });
+
+    $('#pid_mode').click(function() {
+        var $this = $(this);
+
+        var metric = gputop.get_map_metric(global_guid);
+        if (metric == undefined)
+            return;
+
+        if ($this.is(':checked')) {
+            metric.pid_mode_ = true;
+            console.log("Switching On "+metric.name_+" pid mode");
+        } else {
+            metric.pid_mode_ = false;
+            console.log("Switching Off "+metric.name_+" pid mode");
         }
 
         gputop.open_oa_query_for_trace(global_guid);

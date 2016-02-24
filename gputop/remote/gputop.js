@@ -105,7 +105,8 @@ function Metric () {
 
     this.oa_query_id_ = -1; // if there is an active query it will be >0
 
-    this.per_ctx_mode_ = false;
+    this.per_ctx_mode_ = false;	 // Get per context samples
+    this.pid_mode_     = false;   // Get samples with PID data
 
     // Real counter number including not available ones
     this.n_total_counters_ = 0;
@@ -118,6 +119,10 @@ Metric.prototype.is_per_ctx_mode = function() {
     return this.per_ctx_mode_;
 }
 
+Metric.prototype.is_pid_mode = function() {
+    return this.pid_mode_;
+}
+
 Metric.prototype.print = function() {
     gputop_ui.weblog(this.guid_);
 }
@@ -127,7 +132,6 @@ Metric.prototype.find_counter_by_name = function(symbol_name) {
 }
 
 Metric.prototype.add_new_counter = function(emc_guid, symbol_name, counter) {
-    debugger;
     counter.idx_ = this.n_total_counters_++;
     counter.symbol_name = symbol_name;
 
@@ -158,6 +162,9 @@ function Process_info () {
 
     // List of ctx ids on this process
     this.context_ids_ = [];
+
+    // Did we ask gputop about this process?
+    this.init_ = false;
 }
 
 Process_info.prototype.update = function(process) {
@@ -169,7 +176,7 @@ Process_info.prototype.update = function(process) {
 
     var path = res[0].split("/");
     this.process_name_ = path[path.length-1];
-    gputop_ui.update_process(this.pid_, this.process_name_);
+    gputop_ui.update_process(this);
 }
 
 //------------------------------ GPUTOP --------------------------------------
@@ -310,13 +317,22 @@ function gputop_read_metrics_set() {
 } // read_metrics_set
 
 Gputop.prototype.query_update_counter = function (pid, counterId, id, start_timestamp, end_timestamp, delta, max, d_value) {
-    debugger;
     var metric = this.query_metric_handles_[id];
     if (metric == undefined) {
         //TODO Close this query which is not being captured
         if (counterId == 0)
             gputop_ui.show_alert("No query active for data from "+ id +" ","alert-danger");
         return;
+    }
+
+    if (pid != 0) {
+        var process = gputop.get_process_by_pid(pid);
+        if (process.init_ == false) {
+            process.init_ = true;
+            gputop.get_process_info(pid, function(msg) {
+                    gputop_ui.show_alert(" Loading process "+result,"alert-info");
+            });
+        }
     }
 
     var counter = metric.emc_counters_[counterId];
@@ -340,7 +356,6 @@ Gputop.prototype.load_xml_metrics = function(xml) {
 
 Gputop.prototype.load_oa_queries = function(architecture) {
     this.config_.architecture = architecture;
-    debugger;
     // read counters from xml file and populate the website
     gputop.xml_file_name_ = "oa-"+ architecture +".xml";
     $.get(gputop.xml_file_name_, this.load_xml_metrics);
@@ -430,12 +445,16 @@ Gputop.prototype.open_oa_query_for_trace = function(guid) {
                                * as values that have been aggregated
                                * over this duration */
 
+    open.pid_mode = metric.is_pid_mode();
     open.per_ctx_mode = metric.is_per_ctx_mode();
+
     open.oa_query = oa_query;
 
     _gputop_webworker_on_open_oa_query(
           metric.oa_query_id_,
           this.get_emc_guid(guid),
+          open.pid_mode,     // PID
+          open.per_ctx_mode, // CTX
           metric.period_
           ); //100000000
 
@@ -716,7 +735,6 @@ Gputop.prototype.get_socket = function(websocket_url) {
                     gputop.gputop_callbacks_[msg.uuid] = undefined;
 
                     if (callback != undefined) {
-                        debugger;
                         callback(msg);
                     }
 

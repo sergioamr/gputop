@@ -353,7 +353,6 @@ gputop_open_i915_perf_oa_query(struct gputop_perf_query *query,
                                size_t perf_buffer_size,
                                void (*ready_cb)(struct gputop_perf_stream *),
                                bool overwrite,
-                               bool get_pids,
                                char **error)
 {
     struct gputop_perf_stream *stream;
@@ -383,7 +382,7 @@ gputop_open_i915_perf_oa_query(struct gputop_perf_query *query,
         properties[p++] = DRM_I915_PERF_OA_EXPONENT_PROP;
         properties[p++] = period_exponent;
 
-        if (get_pids) {
+        if (query->pid_mode) {
             properties[p++] = DRM_I915_PERF_RING_PROP;
             properties[p++] = I915_EXEC_RENDER;
 

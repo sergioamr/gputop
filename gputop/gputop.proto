@@ -150,6 +150,7 @@ message OpenQuery
     required bool overwrite = 6;
     required bool live_updates = 7;
     required bool per_ctx_mode = 8;
+    required bool pid_mode = 9;
 }
 
 message Request

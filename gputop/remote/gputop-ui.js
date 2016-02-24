@@ -270,8 +270,14 @@ GputopUI.prototype.btn_close_current_query = function() {
     });
 }
 
-GputopUI.prototype.update_process = function(pid, name) {
-    $("#sidebar_processes_info").append('<li class="col-sm-10 "><a id="pid_'+ pid +'" >' + pid +' ' + name + '</a></li>');
+GputopUI.prototype.update_process = function(process) {
+
+    var pid = process.pid_;
+    var name = process.process_name_;
+
+    var tooltip = '<a id="pid_'+ pid +'" href="#" data-toggle="tooltip" title="' + process.cmd_line_ + '">'+ pid + ' ' +name+ '</a>';
+
+    $("#sidebar_processes_info").append('<li class="col-sm-10 ">' + tooltip + '</li>');
     $('#pid_'+pid).click(function (e) {
         console.log("click "+e.target.id);
     });
@@ -285,7 +291,6 @@ GputopUI.prototype.btn_get_process_info = function() {
             var pid = parseInt(result,10);
             if (!isNaN(pid)) {
                 gputop.get_process_info(pid, function(msg) {
-                    debugger;
                     gputop_ui.show_alert(" Callback "+result,"alert-info");
                 });
             } else {
