@@ -151,6 +151,7 @@ message OpenQuery
     required bool live_updates = 7;
     required bool per_ctx_mode = 8;
     required bool pid_mode = 9;
+    required bool ctx_mode = 10;
 }
 
 message Request

@@ -58,19 +58,12 @@
 #include "gputop-ui.h"
 #include "gputop-perf.h"
 #include "gputop-oa-counters.h"
+#include "gputop-accumulator.h"
 
 #include "oa-hsw.h"
 #include "oa-bdw.h"
 #include "oa-chv.h"
 #include "oa-skl.h"
-
-
-/* Samples read() from i915 perf */
-struct oa_sample {
-   struct i915_perf_record_header header;
-   uint32_t pid;
-   uint8_t oa_report[];
-};
 
 #define MAX_I915_PERF_OA_SAMPLE_SIZE (8 +   /* i915_perf_record_header */ \
                                       4 +   /* pid from the sample */     \
@@ -359,6 +352,7 @@ gputop_open_i915_perf_oa_query(struct gputop_perf_query *query,
     struct i915_perf_open_param param;
     int stream_fd = -1;
     int oa_query_fd = drm_fd;
+    uint32_t sample_flags = 0;
 
     if (!gputop_fake_mode) {
         uint64_t properties[DRM_I915_PERF_PROP_MAX * 2];
@@ -382,17 +376,36 @@ gputop_open_i915_perf_oa_query(struct gputop_perf_query *query,
         properties[p++] = DRM_I915_PERF_OA_EXPONENT_PROP;
         properties[p++] = period_exponent;
 
-        if (query->pid_mode) {
+        /* Explicitly enable command-stream based sampling */
+        if (query->pid_mode || query->ctx_mode) {
             properties[p++] = DRM_I915_PERF_RING_PROP;
             properties[p++] = I915_EXEC_RENDER;
-
-            properties[p++] = DRM_I915_PERF_SAMPLE_PID_PROP;
-            properties[p++] = true;
-
-            //properties[p++] = DRM_I915_PERF_SAMPLE_TAG_PROP;
-            //properties[p++] = true;
         }
 
+        /* Include process Ids in the sample data */
+        if (query->pid_mode) {
+            properties[p++] = DRM_I915_PERF_SAMPLE_PID_PROP;
+            properties[p++] = true;
+            sample_flags |= SAMPLE_PID;
+        }
+
+        /* Include context ids in the sample data */
+        if (query->ctx_mode) {
+            properties[p++] = DRM_I915_PERF_SAMPLE_CTX_ID_PROP;
+            properties[p++] = true;
+            sample_flags |= SAMPLE_CTX_ID;
+        }
+
+        /* Include tags information */
+        /*
+        if (query->tags_mode) {
+            properties[p++] = DRM_I915_PERF_SAMPLE_TAG_PROP;
+            properties[p++] = true;
+            sample_flags |= SAMPLE_TAG;
+        }
+        */
+
+        /* Filter per context on kernel space to not require user space special permissions */
         if (query->per_ctx_mode) {
             struct ctx_handle *ctx;
 
@@ -437,6 +450,8 @@ gputop_open_i915_perf_oa_query(struct gputop_perf_query *query,
     stream->ready_cb = ready_cb;
 
     stream->fd = stream_fd;
+
+    stream->sample_flags = sample_flags;
 
     if (gputop_fake_mode) {
         stream->start_time = gputop_get_time();
@@ -1149,6 +1164,8 @@ read_i915_perf_samples(struct gputop_perf_stream *stream)
         int offset = 0;
         uint8_t *buf;
         int count;
+        uint32_t pid = 0;
+        uint32_t ctx_id = 0;
 
         /* We double buffer reads so we can safely keep a pointer to
          * our last sample for calculating deltas */
@@ -1195,9 +1212,27 @@ read_i915_perf_samples(struct gputop_perf_stream *stream)
                 break;
 
             case DRM_I915_PERF_RECORD_SAMPLE: {
-                struct oa_sample *sample = (struct oa_sample *)header;
-                uint8_t *report = sample->oa_report;
-                uint32_t reason = (((uint32_t*)report)[0] >> OAREPORT_REASON_SHIFT) &
+                uint8_t *report;
+                uint32_t reason;
+                uint8_t *sample = (uint8_t *) header;
+
+                sample += sizeof(*header);
+                if (stream->sample_flags & SAMPLE_PID) {
+                    pid = *((uint32_t *) sample);
+                    sample += 4;
+                }
+
+                if (stream->sample_flags & SAMPLE_CTX_ID) {
+                    ctx_id = *((uint32_t *) sample);
+                    sample += 4;
+                }
+
+                if (pid || ctx_id) {
+                    gputop_add_accumulator(pid, ctx_id);
+                }
+
+                report = (uint8_t *) sample;
+                reason = (((uint32_t*)report)[0] >> OAREPORT_REASON_SHIFT) &
                         OAREPORT_REASON_MASK;
 
                 /* On GEN8+ the hardware is able to generate reports with a
@@ -1502,6 +1537,7 @@ gputop_perf_initialize(void)
 {
     if (gputop_devinfo.n_eus)
         return true;
+
     if (getenv("GPUTOP_FAKE_MODE") && strcmp(getenv("GPUTOP_FAKE_MODE"), "1") == 0) {
         gputop_fake_mode = true;
         intel_dev.device = 0;
@@ -1539,6 +1575,8 @@ gputop_perf_initialize(void)
         return gputop_enumerate_queries_fake();
     else
         return gputop_enumerate_queries_via_sysfs();
+
+    gputop_accumulator_init();
 }
 
 static void

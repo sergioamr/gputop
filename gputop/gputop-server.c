@@ -598,6 +598,7 @@ handle_open_i915_perf_oa_query(h2o_websocket_conn_t *conn,
         buffer_size = 16 * 1024 * 1024;
 
     perf_query->pid_mode = open_query->pid_mode;
+    perf_query->ctx_mode = open_query->ctx_mode;
     perf_query->per_ctx_mode = open_query->per_ctx_mode;
 
     stream = gputop_open_i915_perf_oa_query(perf_query,
@@ -881,6 +882,7 @@ handle_get_process_info(h2o_websocket_conn_t *conn,
     message.cmd_case = GPUTOP__MESSAGE__CMD_ERROR;
     message.error = "Failed to find process\n";
     send_pb_message(conn, &message.base);
+    dbg("Failed to find process %d\n", pid);
 }
 
 static void

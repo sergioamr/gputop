@@ -106,7 +106,8 @@ function Metric () {
     this.oa_query_id_ = -1; // if there is an active query it will be >0
 
     this.per_ctx_mode_ = false;	 // Get per context samples
-    this.pid_mode_     = false;   // Get samples with PID data
+    this.pid_mode_     = false;  // Get samples with PID data
+    this.ctx_mode_     = false;  // Get samples with Context data
 
     // Real counter number including not available ones
     this.n_total_counters_ = 0;
@@ -115,12 +116,19 @@ function Metric () {
     this.period_ = 1000000000;
 }
 
+/* Filter by a context on the kernel from user space */
 Metric.prototype.is_per_ctx_mode = function() {
     return this.per_ctx_mode_;
 }
 
+/* Include pids on the sample data */
 Metric.prototype.is_pid_mode = function() {
     return this.pid_mode_;
+}
+
+/* Include context ids on the sample data */
+Metric.prototype.is_ctx_mode = function() {
+    return this.ctx_mode_;
 }
 
 Metric.prototype.print = function() {
@@ -316,7 +324,7 @@ function gputop_read_metrics_set() {
     }
 } // read_metrics_set
 
-Gputop.prototype.query_update_counter = function (pid, counterId, id, start_timestamp, end_timestamp, delta, max, d_value) {
+Gputop.prototype.query_update_counter = function (pid, ctx_id, counterId, id, start_timestamp, end_timestamp, delta, max, d_value) {
     var metric = this.query_metric_handles_[id];
     if (metric == undefined) {
         //TODO Close this query which is not being captured
@@ -446,6 +454,7 @@ Gputop.prototype.open_oa_query_for_trace = function(guid) {
                                * over this duration */
 
     open.pid_mode = metric.is_pid_mode();
+    open.ctx_mode = metric.is_ctx_mode();
     open.per_ctx_mode = metric.is_per_ctx_mode();
 
     open.oa_query = oa_query;
@@ -453,8 +462,10 @@ Gputop.prototype.open_oa_query_for_trace = function(guid) {
     _gputop_webworker_on_open_oa_query(
           metric.oa_query_id_,
           this.get_emc_guid(guid),
-          open.pid_mode,     // PID
-          open.per_ctx_mode, // CTX
+          open.pid_mode,     /* Include PID on the sample data */
+          open.ctx_mode,     /* Include context ids on the sample data */
+          open.per_ctx_mode, /* Per context mode, the kernel only */
+                             /* sends samples for a particular context */
           metric.period_
           ); //100000000
 

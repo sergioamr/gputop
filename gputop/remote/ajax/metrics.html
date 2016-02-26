@@ -5,23 +5,27 @@
 
 <!-- Options bar -->
 <div class="well" id="options_bar" style="display: table">
-    <div style="display: table-cell; vertical-align: middle;">
+    <div style="display: table-cell; vertical-align: middle;" data-toggle="tooltip" title="Pause the capturing of data">
     <label><b>Stop query</b></label>
     <button type="button" id="button_stop" class="btn" onclick="buttonTogglePlay()" >
         <div id="toggle-query" class="glyphicon glyphicon-pause"></div>
     </button>
     </div>
 
-    <div style="display: table-cell; padding-left:25px; vertical-align: middle">
+    <div style="display: table-cell; padding-left:25px; vertical-align: middle"  data-toggle="tooltip" title="Adjust the time in which the data is accumulated before being presented">
         <b>Adjust Speed: &nbsp</b> <input type="text" value="1000000000" data-slider-min="10000000" data-slider-max="1000000000" data-slider-step="10000000" data-slider-value="1000000000" data-slider-id="slider_style" id="speed_slider">
     </div>
-    <div class="checkbox" id="pid_mode_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle">
+    <div class="checkbox" id="pid_mode_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle" data-toggle="tooltip" title="Add Process IDs to the sample data">
         <label><input type = "checkbox" id = "pid_mode"><b>Pid mode</b> <small>(experimental)</small></label>
     </div>
-    <div class="checkbox" id="per_ctx_mode_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle">
+
+    <div class="checkbox" id="ctx_mode_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle"  data-toggle="tooltip" title="Add context IDs to the sample data">
+        <label><input type = "checkbox" id = "ctx_mode"><b>Ctx mode</b> <small>(experimental)</small></label>
+    </div>
+    <div class="checkbox" id="per_ctx_mode_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle"  data-toggle="tooltip" title="Filter by context using the kernel. For userspace metrics without root access">
         <label><input type = "checkbox" id = "per_ctx_mode"><b>Per context mode</b> <small>(experimental)</small></label>
     </div>
-    <div class="checkbox" id="unsupported_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle">
+    <div class="checkbox" id="unsupported_checkbox" style="display: table-cell; padding-left:25px; vertical-align: middle"  data-toggle="tooltip" title="Hide unsupported metrics, you will not be able to see the documentation for them.">
         <label><input type = "checkbox" id = "hide_metrics"><b>Hide unsupported</b></label>
     </div>
 
@@ -113,10 +117,10 @@
                 <div class = "progress_text" id = "' + counter_text_bar_id +'">' + 0 + '</div> \
                 <div class = "live_trace_dropdown">&nbsp\
                     <a role="button" data-toggle="collapse" href="#collapse_graph_' + set_index + '_' + counter_index + '" aria-expanded="false" aria-controls="collapseExample"> \
-                        <div id = "graph_button_' + set_index + '_' + counter_index + '" class = "glyphicon test123 glyphicon-collapse-down"></div> \
+                        <div id = "graph_button_' + set_index + '_' + counter_index + '" class = "glyphicon test123 glyphicon-collapse-down"  data-toggle="tooltip" title="Show the time graph"></div> \
                     </a> \
                 </div> \
-                <div class = "handle glyphicon glyphicon-move"></div> \
+                <div class = "handle glyphicon glyphicon-move" data-toggle="tooltip" title="Reorder by drag and drop of the counters"></div> \
             </div> \
             <div class="collapse" id="collapse_graph_' + set_index + '_' + counter_index + '"> \
                 <div class="well graph_container" id="flotcontainer_' + set_index + '_' + counter_index + '"></div> \
@@ -297,6 +301,24 @@
         } else {
             metric.pid_mode_ = false;
             console.log("Switching Off "+metric.name_+" pid mode");
+        }
+
+        gputop.open_oa_query_for_trace(global_guid);
+    });
+
+    $('#ctx_mode').click(function() {
+        var $this = $(this);
+
+        var metric = gputop.get_map_metric(global_guid);
+        if (metric == undefined)
+            return;
+
+        if ($this.is(':checked')) {
+            metric.ctx_mode_ = true;
+            console.log("Switching On "+metric.name_+" ctx mode");
+        } else {
+            metric.ctx_mode_ = false;
+            console.log("Switching Off "+metric.name_+" ctx mode");
         }
 
         gputop.open_oa_query_for_trace(global_guid);

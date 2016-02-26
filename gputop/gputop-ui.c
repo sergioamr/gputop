@@ -163,6 +163,9 @@ i915_perf_oa_overview_open(struct gputop_perf_query *query,
     gputop_perf_current_user = &overview_user;
     gputop_current_perf_query = query;
 
+    gputop_current_perf_query->pid_mode = true;
+    gputop_current_perf_query->ctx_mode = true;
+
     gputop_current_perf_query->per_ctx_mode = enable_per_ctx;
 
     /* The timestamp for HSW+ increments every 80ns

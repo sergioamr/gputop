@@ -71,6 +71,12 @@ struct gputop_devinfo {
     uint64_t slice_mask;
 };
 
+/* Sample flags which define the information included on the sample */
+#define SAMPLE_OA_REPORT       (1<<0)
+#define SAMPLE_OA_SOURCE_INFO  (1<<1)
+#define SAMPLE_CTX_ID          (1<<2)
+#define SAMPLE_PID             (1<<3)
+
 struct gputop_perf_query;
 uint64_t get_time(void);
 struct gputop_perf_query_counter
@@ -104,6 +110,7 @@ struct gputop_perf_query
     struct gputop_perf_query_counter *counters;
     int n_counters;
     bool pid_mode;
+    bool ctx_mode;
     bool per_ctx_mode;
 
     int perf_oa_metrics_set;
@@ -262,6 +269,8 @@ struct gputop_perf_stream
     void (*on_close_cb)(struct gputop_perf_stream *stream);
     bool pending_close;
     bool closed;
+
+    uint32_t sample_flags;
 
 // fields used for fake data:
     uint64_t start_time;  // stream opening time

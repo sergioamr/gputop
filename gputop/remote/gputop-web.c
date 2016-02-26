@@ -174,7 +174,7 @@ read_report_raw_timestamp(const uint32_t *report)
 #define JS_MAX_SAFE_INTEGER (((uint64_t)1<<53) - 1)
 
 void
-_gputop_query_update_counter(int pid, int counter, int id,
+_gputop_query_update_counter(int pid, int ctx_id, int counter, int id,
         double start_timestamp, double end_timestamp,
         double delta, double max, double ui64_value);
 
@@ -197,7 +197,7 @@ get_counter_id(const char *guid, const char *counter_symbol_name)
 }
 
 static void
-forward_query_update(uint32_t pid, struct gputop_worker_query *query)
+forward_query_update(uint32_t pid, uint32_t ctx_id, struct gputop_worker_query *query)
 {
     struct gputop_perf_query *oa_query = query->oa_query;
     uint64_t delta;
@@ -243,7 +243,7 @@ forward_query_update(uint32_t pid, struct gputop_worker_query *query)
             break;
         }
 
-        _gputop_query_update_counter(pid, i, query->id,
+        _gputop_query_update_counter(pid, ctx_id, i, query->id,
                     query->start_timestamp, query->end_timestamp,
                     delta, max, d_value);
     }
@@ -278,6 +278,7 @@ handle_oa_query_i915_perf_data(struct gputop_worker_query *query, uint8_t *data,
     uint8_t *last;
     uint64_t end_timestamp;
     static uint32_t old_pid = 0;
+    static uint32_t old_ctx_id = 0;
     uint32_t pid = 0;
     uint32_t ctx_id = 0;
 
@@ -350,10 +351,11 @@ handle_oa_query_i915_perf_data(struct gputop_worker_query *query, uint8_t *data,
 
 	    //gputop_web_console_log("PID %d timestamp = %"PRIu64" target duration=%u", pid,
 	    //			     timestamp, (unsigned)(end_timestamp - query->start_timestamp));
-            if (timestamp >= end_timestamp || (pid != 0 && old_pid != pid )) {
+            if (timestamp >= end_timestamp || (pid != 0 && old_pid != pid ) || (ctx_id != 0 && old_ctx_id != ctx_id )) {
                 old_pid = pid;
+                old_ctx_id = ctx_id;
 
-		forward_query_update(pid, query);
+		forward_query_update(pid, ctx_id, query);
 		memset(oa_query->accumulator, 0, sizeof(oa_query->accumulator));
 		query->start_timestamp = timestamp;
 

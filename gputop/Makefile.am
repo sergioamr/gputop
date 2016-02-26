@@ -43,6 +43,8 @@ libgputop_la_SOURCES = \
     oa-skl.c \
     gputop-perf.h \
     gputop-perf.c \
+    gputop-accumulator.h \
+    gputop-accumulator.c \
     gputop-util.h \
     gputop-util.c \
     gputop-list.h \
