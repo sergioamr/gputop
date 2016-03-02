@@ -30,6 +30,15 @@ function gputop_help() {
 function gputop_wip_error() {
     alert("Not implemented yet!");
 }
+
+function gputop_reconnect() {
+    gputop.connect();
+}
+
+function gputop_load_metric_set(metric_set) {
+    gputop.load_fake_metrics(metric_set);
+}
+
 </script>
 
     <nav class="navbar navbar-inverse navbar-fixed-top">
@@ -45,6 +54,17 @@ function gputop_wip_error() {
         </div>
         <div id="navbar" class="navbar-collapse collapse">
           <ul id="gputop-entries" class="nav navbar-nav navbar-right">
+            <li class="dropdown">
+              <a href="#" class="dropdown-toggle" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-haspopup="true" aria-expanded="true">Inspect metric set</a>
+                <ul class="dropdown-menu" aria-labelledby="dropdownMenu1">
+                  <li><a href="#" onclick="gputop_reconnect()">Connect to GPUTOP</a></li>
+                  <li role="separator" class="divider"></li>
+                  <li><a href="#" onclick="gputop_load_metric_set('hsw')">Haswell</a></li>
+                  <li><a href="#" onclick="gputop_load_metric_set('skl')">Skylake</a></li>
+                  <li><a href="#" onclick="gputop_load_metric_set('bdw')">Broadwell</a></li>
+                  <li><a href="#" onclick="gputop_load_metric_set('chv')">Cherryview</a></li>
+                </ul>
+            </li>
             <li>
               <a data-toggle="modal" data-target="#myModal" href="ajax/installation.html" >Installation</a>
             </li>
@@ -136,6 +156,6 @@ function gputop_wip_error() {
 
     <script src="gputop-ui.js"></script>
     <script src="gputop.js"></script>
-    
+
   </body>
 </html>
