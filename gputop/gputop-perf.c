@@ -1538,6 +1538,8 @@ gputop_perf_initialize(void)
     if (gputop_devinfo.n_eus)
         return true;
 
+    gputop_accumulator_init();
+
     if (getenv("GPUTOP_FAKE_MODE") && strcmp(getenv("GPUTOP_FAKE_MODE"), "1") == 0) {
         gputop_fake_mode = true;
         intel_dev.device = 0;
@@ -1576,7 +1578,6 @@ gputop_perf_initialize(void)
     else
         return gputop_enumerate_queries_via_sysfs();
 
-    gputop_accumulator_init();
 }
 
 static void

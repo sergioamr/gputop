@@ -39,6 +39,7 @@
 #include <gputop-string.h>
 #include <gputop-oa-counters.h>
 
+#include "gputop-accumulator.h"
 #include "gputop-web-lib.h"
 
 #include "oa-hsw.h"
@@ -324,6 +325,10 @@ handle_oa_query_i915_perf_data(struct gputop_worker_query *query, uint8_t *data,
                 sample += 4;
             }
 
+            if (pid || ctx_id) {
+                gputop_add_accumulator(pid, ctx_id);
+            }
+
 	    uint8_t *report = sample;
 	    uint32_t raw_timestamp = read_report_raw_timestamp((uint32_t *)report);
 	    uint64_t timestamp;
@@ -550,8 +555,9 @@ gputop_webworker_on_close_oa_query(uint32_t id)
 void EMSCRIPTEN_KEEPALIVE
 gputop_webworker_init(void)
 {
-    gputop_list_init(&open_queries);
     gputop_web_console_log("EMSCRIPTEN Init Compilation (" __TIME__ " " __DATE__ ")");
+    gputop_accumulator_init();
+    gputop_list_init(&open_queries);
 }
 
 void EMSCRIPTEN_KEEPALIVE
