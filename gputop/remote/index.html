@@ -24,6 +24,18 @@
 
   <body class="bb-js">
 <script>
+function gputop_is_website() {
+    console.log(" Location host "+window.location.hostname);
+     
+    if (window.location.hostname == "gputop.github.io" 
+//      || window.location.hostname == "localhost"  
+    ) {
+           return true;
+    }
+    
+    return false;
+}
+  
 function gputop_help() {
     alert("WIP Version");
 }
@@ -84,6 +96,7 @@ function gputop_load_metric_set(metric_set) {
       <div class="row" >
         <div class="col-sm-2 sidebar" style="width:12%; margin-top:25px">
           <ul class="nav nav-sidebar">
+            <li><a href="#gputop-welcome-panel" data-toggle="tab" id="welcome-tab-a">Welcome</a></li>            
             <li class="active" id="metrics-tab"><a id="metrics-tab-a" href="#pane2" data-toggle="tab">Metrics</a>
               <ul class="nav nav-stacked nav-pills navbar-custom" id="sidebar_right" data-toggle="tabs" style="list-style-type:none; padding-top:10px; padding-bottom:10px;">
               </ul>
@@ -100,6 +113,9 @@ function gputop_load_metric_set(metric_set) {
         </div>
          <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main" style = "margin-left: 13%">
           <div class="tab-content" id="gputop-panels">
+            <div class="tab-pane" id="gputop-welcome-panel">
+              <p>Welcome didn't load yet</p>
+            </div>            
             <div class="tab-pane" id="gputop-overview-panel">
               <p>Overview didn't load yet</p>
             </div>
@@ -156,6 +172,15 @@ function gputop_load_metric_set(metric_set) {
 
     <script src="gputop-ui.js"></script>
     <script src="gputop.js"></script>
-
+<script>
+    $( '#gputop-welcome-panel' ).load( "ajax/welcome.html", function() {
+        console.log('Loaded welcome');
+    });        
+  
+    if (gputop_is_website()) {
+        $('#welcome-tab-a').trigger('click');
+        $( ".gputop-connecting" ).hide();        
+    }
+ </script>
   </body>
 </html>
